@@ -1,0 +1,1 @@
+{"format_version":"1.2","resource_changes":[{"address":"terraform_data.old","change":{"actions":["delete"]}},{"address":"terraform_data.replaced","change":{"actions":["delete","create"]}}]}

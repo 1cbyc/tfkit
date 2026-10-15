@@ -16,7 +16,17 @@ func main() {
 		flag.Usage()
 		os.Exit(2)
 	}
-	f, err := os.Open(flag.Arg(0))
+	path := flag.Arg(0)
+	info, err := os.Lstat(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tfplan: %v\n", err)
+		os.Exit(2)
+	}
+	if !info.Mode().IsRegular() {
+		fmt.Fprintf(os.Stderr, "tfplan: %s is not a regular file\n", path)
+		os.Exit(2)
+	}
+	f, err := os.Open(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "tfplan: %v\n", err)
 		os.Exit(2)

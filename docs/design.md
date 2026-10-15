@@ -12,13 +12,13 @@ The checker does not enforce provider-specific opinions. Network exposure, encry
 
 ## Plan boundary
 
-`tfplan` accepts the stable machine-readable output produced by `terraform show -json`. Input is bounded to 64 MiB, unknown fields are rejected, and unknown action sequences fail closed. A delete or either replacement order is destructive. The approval flag acknowledges review but does not apply the plan.
+`tfplan` accepts the stable machine-readable output produced by `terraform show -json`. Input is bounded to 64 MiB and must be a regular file at the command boundary. Unknown fields are ignored because Terraform reserves minor format-version changes for backward-compatible additions. Unsupported major versions, malformed versions, missing plan status, errored plans, non-applyable plans, incomplete plans, duplicate resource addresses, and unknown action sequences fail closed. A delete or either replacement order is destructive. Destructive addresses are sorted before display. The approval flag acknowledges review but does not apply the plan.
 
 This gate is not authorization. A delivery workflow must still constrain credentials, require environment approval, retain the original binary plan, and ensure the JSON and applied plan came from the same run.
 
 ## Environment contract
 
-The provider-free root module centralizes only values with cross-provider meaning: a validated environment, service identity, name prefix, and required tags. It creates no resources. Provider modules can consume the outputs without inheriting credentials or backend choices.
+The provider-free root module centralizes only values with cross-provider meaning: a validated environment, service identity, name prefix, and required tags. It creates no resources. Provider modules can consume the outputs without inheriting credentials or backend choices. The executable consumer passes both outputs into `terraform_data`, creates a saved plan, and runs that plan through the same command exposed to adopters.
 
 ## Explicit non-goals
 

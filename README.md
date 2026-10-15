@@ -3,14 +3,14 @@
 `tfkit` provides two review gates for reusable Terraform and one small provider-free module that demonstrates them.
 
 - `tfcheck` checks module layout and rejects undocumented interfaces, missing type declarations, embedded backends, and provisioners.
-- `tfplan` reads `terraform show -json` output, prints a compact resource-change summary, and blocks deletes or replacements until a reviewer explicitly acknowledges them.
+- `tfplan` reads `terraform show -json` output, prints a compact resource-change summary, and blocks invalid, errored, non-applyable, incomplete, deleting, or replacing plans.
 - The root module validates service and environment identity, produces a stable name prefix, and prevents callers from overriding required ownership tags.
 
 The gates are deliberately separate from `terraform apply`. They do not obtain credentials, change infrastructure, or hide a plan from reviewers.
 
 ## Requirements
 
-- Go 1.26 or later
+- Go 1.27 or later
 - Terraform 1.16.x
 - GNU Make
 
@@ -31,11 +31,11 @@ terraform show -json saved.tfplan > plan.json
 ./bin/tfplan -approve-destructive plan.json
 ```
 
-Malformed input, unsupported action sequences, missing files, and parser errors exit with status 2. Policy findings exit with status 1. This distinction lets CI separate invalid execution from an actionable policy failure.
+Malformed input, unsupported format major versions or action sequences, non-regular input files, incomplete plans, missing files, and parser errors exit with status 2. Policy findings and unacknowledged destructive plans exit with status 1. This distinction lets CI separate invalid execution from an actionable policy failure.
 
 ## Consume the module
 
-The [environment example](examples/environment/main.tf) shows a local adoption path. In another repository, pin the source to a reviewed commit:
+The [environment example](examples/environment/main.tf) shows the output contract. The [consumer example](examples/consumer/main.tf) passes those outputs into a provider-free managed resource and produces a real saved plan for `tfplan`. In another repository, pin the source to a reviewed commit:
 
 ```hcl
 module "identity" {
@@ -54,7 +54,7 @@ Feed `module.identity.name_prefix` and `module.identity.tags` into provider-spec
 make ci
 ```
 
-This runs Go formatting, vet, race-enabled tests, command-level success and rejection checks, Terraform formatting, initialization, validation, and native module tests. It never runs `terraform apply`.
+This runs Go formatting, vet, race-enabled tests, command-level success and rejection checks, Terraform formatting, initialization, validation, native module tests, and a saved-plan consumer scenario. It never runs `terraform apply`.
 
 ## Design boundaries
 

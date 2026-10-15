@@ -15,14 +15,14 @@ Never place backend credentials in configuration. Production state should use an
 
 - Exit 1 from `tfcheck` means the configuration parsed but violated repository policy. The output names each file and rule.
 - Exit 1 from `tfplan` means the plan contains deletion or replacement. Inspect the listed addresses and the original plan.
-- Exit 2 means invocation or input failed. Regenerate plan JSON using the same supported Terraform version and do not approve malformed input.
+- Exit 2 means invocation or input failed, or Terraform marked the plan errored, non-applyable, or incomplete. Regenerate the saved plan and JSON using the same supported Terraform version. Do not approve malformed or non-convergent input.
 - A native Terraform test failure should be fixed in module code or expectations. Do not convert a failing apply test into a plan test merely to bypass behavior.
 
 ## Compatibility
 
 The current module requires Terraform 1.16.x or newer within major version 1. Consumers should pin this repository to a full commit. Before changing input types, output names, validation rules, or required tags, test at least one existing consumer and document the migration.
 
-Plan JSON is an integration boundary. Upgrade `tfplan` before upgrading Terraform if a new Terraform release introduces an action sequence or format that the command rejects.
+Plan JSON is an integration boundary. Compatible `1.x` format additions are ignored. Upgrade `tfplan` before adopting a new format major version or a Terraform release that introduces an action sequence the command rejects.
 
 ## Roll back
 

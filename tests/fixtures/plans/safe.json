@@ -1,1 +1,1 @@
-{"format_version":"1.2","resource_changes":[{"address":"terraform_data.new","change":{"actions":["create"]}},{"address":"terraform_data.current","change":{"actions":["update"]}}]}
+{"format_version":"1.2","applyable":true,"complete":true,"resource_changes":[{"address":"terraform_data.new","change":{"actions":["create"]}},{"address":"terraform_data.current","change":{"actions":["update"]}}]}

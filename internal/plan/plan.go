@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 type Report struct {
@@ -17,6 +20,9 @@ type Report struct {
 
 type document struct {
 	FormatVersion   string `json:"format_version"`
+	Applyable       *bool  `json:"applyable"`
+	Complete        *bool  `json:"complete"`
+	Errored         bool   `json:"errored"`
 	ResourceChanges []struct {
 		Address string `json:"address"`
 		Change  struct {
@@ -26,9 +32,14 @@ type document struct {
 }
 
 func Analyze(r io.Reader) (Report, error) {
-	dec := json.NewDecoder(io.LimitReader(r, 64<<20))
+	const maximumBytes = 64 << 20
+	limited := &io.LimitedReader{R: r, N: maximumBytes + 1}
+	dec := json.NewDecoder(limited)
 	var doc document
 	if err := dec.Decode(&doc); err != nil {
+		if limited.N == 0 {
+			return Report{}, fmt.Errorf("plan JSON exceeds %d bytes", maximumBytes)
+		}
 		return Report{}, fmt.Errorf("decode plan JSON: %w", err)
 	}
 	var trailing any
@@ -41,11 +52,38 @@ func Analyze(r io.Reader) (Report, error) {
 	if doc.FormatVersion == "" {
 		return Report{}, fmt.Errorf("missing format_version")
 	}
+	major, err := formatMajor(doc.FormatVersion)
+	if err != nil {
+		return Report{}, err
+	}
+	if major != 1 {
+		return Report{}, fmt.Errorf("unsupported format_version %q", doc.FormatVersion)
+	}
+	if limited.N == 0 {
+		return Report{}, fmt.Errorf("plan JSON exceeds %d bytes", maximumBytes)
+	}
+	if doc.Applyable == nil || doc.Complete == nil {
+		return Report{}, fmt.Errorf("plan JSON must include applyable and complete status")
+	}
+	if doc.Errored {
+		return Report{}, fmt.Errorf("plan is marked errored")
+	}
+	if !*doc.Applyable {
+		return Report{}, fmt.Errorf("plan is not applyable")
+	}
+	if !*doc.Complete {
+		return Report{}, fmt.Errorf("plan is incomplete")
+	}
 	var report Report
+	seen := make(map[string]struct{}, len(doc.ResourceChanges))
 	for _, resource := range doc.ResourceChanges {
 		if resource.Address == "" {
 			return Report{}, fmt.Errorf("resource change has an empty address")
 		}
+		if _, exists := seen[resource.Address]; exists {
+			return Report{}, fmt.Errorf("resource %s appears more than once", resource.Address)
+		}
+		seen[resource.Address] = struct{}{}
 		switch actionsKey(resource.Change.Actions) {
 		case "create":
 			report.Create++
@@ -63,7 +101,23 @@ func Analyze(r io.Reader) (Report, error) {
 			return Report{}, fmt.Errorf("resource %s has unsupported actions %q", resource.Address, resource.Change.Actions)
 		}
 	}
+	sort.Strings(report.Destructive)
 	return report, nil
+}
+
+func formatMajor(value string) (int, error) {
+	parts := strings.Split(value, ".")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return 0, fmt.Errorf("invalid format_version %q", value)
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, fmt.Errorf("invalid format_version %q", value)
+	}
+	if _, err := strconv.Atoi(parts[1]); err != nil {
+		return 0, fmt.Errorf("invalid format_version %q", value)
+	}
+	return major, nil
 }
 
 func actionsKey(actions []string) string {
